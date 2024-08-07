@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partitura Avanzada para Boomwhackers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        #app-container {
+            display: flex;
+            width: 100%;
+            max-width: 1200px;
+            gap: 20px;
+        }
+        #note-palette {
+            width: 200px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        #score-container {
+            flex-grow: 1;
+            border: 1px solid #ccc;
+            padding: 10px;
+            min-height: 400px;
+        }
+        #score {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .measure {
+            display: flex;
+            border: 1px solid #888;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
+        .note {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .note.low {
+            border-bottom: 3px solid #000;
+        }
+        .note.long {
+            width: 60px;
+        }
+        .note::after {
+            content: attr(data-note);
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Partitura Avanzada para Boomwhackers</h1>
+    <div id="app-container">
+        <div id="note-palette">
+            <button onclick="setCurrentNote('C', '#FF0000')">Do (Rojo)</button>
+            <button onclick="setCurrentNote('C#', '#FF4500')">Do# (Naranja rojizo)</button>
+            <button onclick="setCurrentNote('D', '#FFA500')">Re (Naranja)</button>
+            <button onclick="setCurrentNote('D#', '#FFD700')">Re# (Amarillo dorado)</button>
+            <button onclick="setCurrentNote('E', '#FFFF00')">Mi (Amarillo)</button>
+            <button onclick="setCurrentNote('F', '#ADFF2F')">Fa (Verde claro)</button>
+            <button onclick="setCurrentNote('F#', '#32CD32')">Fa# (Verde lima)</button>
+            <button onclick="setCurrentNote('G', '#0000FF')">Sol (Azul)</button>
+            <button onclick="setCurrentNote('G#', '#4B0082')">Sol# (Índigo)</button>
+            <button onclick="setCurrentNote('A', '#800080')">La (Violeta)</button>
+            <button onclick="setCurrentNote('A#', '#DB7093')">La# (Rosado oscuro)</button>
+            <button onclick="setCurrentNote('B', '#FFC0CB')">Si (Rosa)</button>
+            <button onclick="toggleLowNote()">Alternar nota grave</button>
+            <button onclick="toggleLongNote()">Alternar nota larga</button>
+            <button onclick="addMeasure()">Añadir compás</button>
+            <button onclick="clearScore()">Limpiar partitura</button>
+            <button onclick="playComposition()">Reproducir composición</button>
+        </div>
+        <div id="score-container">
+            <div id="score"></div>
+        </div>
+    </div>
+
+    <script>
+        const score = document.getElementById('score');
+        let isLowNote = false;
+        let isLongNote = false;
+        let currentNote = null;
+        let currentColor = null;
+
+        function setCurrentNote(note, color) {
+            currentNote = note;
+            currentColor = color;
+        }
+
+        function toggleLowNote() {
+            isLowNote = !isLowNote;
+            document.getElementById('note-palette').style.opacity = isLowNote ? 0.5 : 1;
+        }
+
+        function toggleLongNote() {
+            isLongNote = !isLongNote;
+        }
+
+        function addMeasure() {
+            const measure = document.createElement('div');
+            measure.className = 'measure';
+            score.appendChild(measure);
+        }
+
+        function addNote(measure) {
+            if (!currentNote) return;
+            const noteElement = document.createElement('div');
+            noteElement.className = 'note';
+            noteElement.style.backgroundColor = currentColor;
+            noteElement.dataset.note = currentNote;
+            if (isLowNote) {
+                noteElement.classList.add('low');
+            }
+            if (isLongNote) {
+                noteElement.classList.add('long');
+            }
+            noteElement.onclick = () => noteElement.remove();
+            measure.appendChild(noteElement);
+        }
+
+        function clearScore() {
+            score.innerHTML = '';
+        }
+
+        function playComposition() {
+            const measures = score.children;
+            let delay = 0;
+            for (let measure of measures) {
+                const notes = measure.children;
+                for (let note of notes) {
+                    setTimeout(() => {
+                        playNote(note.dataset.note, note.classList.contains('low'));
+                        note.style.opacity = 0.5;
+                        setTimeout(() => {
+                            note.style.opacity = 1;
+                        }, 300);
+                    }, delay);
+                    delay += note.classList.contains('long') ? 1000 : 500;
+                }
+            }
+        }
+
+        function playNote(note, isLow) {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+
+            const freq = noteToFreq(note, isLow);
+            osc.frequency.value = freq;
+
+            gainNode.gain.setValueAtTime(0, ctx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(1, ctx.currentTime + 0.01);
+            gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+
+            osc.start(ctx.currentTime);
+            osc.stop(ctx.currentTime + 0.3);
+        }
+
+        function noteToFreq(note, isLow) {
+            const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+            const octave = isLow ? 3 : 4;
+            const number = notes.indexOf(note);
+            
+            if (number < 0) {
+                return 0;
+            }
+
+            return 440 * Math.pow(2, (number - 9) / 12 + (octave - 4));
+        }
+
+        // Inicializar la partitura con un compás
+        addMeasure();
+
+        // Agregar event listener para añadir notas al hacer clic en un compás
+        score.addEventListener('click', (e) => {
+            if (e.target.classList.contains('measure')) {
+                addNote(e.target);
+            }
+        });
+    </script>
+</body>
+</html>
